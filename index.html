@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veille Alternance</title>
+<style>
+  :root {
+    --bg: #f7f7f8; --card: #ffffff; --text: #18181b; --muted: #6b7280;
+    --border: #e5e7eb; --accent: #2563eb; --accent-text: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f12; --card: #18181d; --text: #f4f4f5; --muted: #a1a1aa;
+      --border: #2a2a31; --accent: #3b82f6; --accent-text: #ffffff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 20px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 16px;
+  }
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  textarea {
+    width: 100%; min-height: 110px; padding: 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    font: inherit; resize: vertical;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .period button {
+    padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font: inherit; cursor: pointer;
+  }
+  .period button[aria-pressed="true"] {
+    background: var(--accent); color: var(--accent-text); border-color: var(--accent);
+  }
+  .kw { margin-top: 16px; }
+  .kw h2 { font-size: 1rem; margin: 0 0 10px; word-break: break-word; }
+  .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .links a {
+    display: block; padding: 9px 10px; border-radius: 8px; text-decoration: none;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    font-size: 0.9rem;
+  }
+  .links a:hover { border-color: var(--accent); }
+  .links a small { display: block; color: var(--muted); font-size: 0.75rem; }
+  .tip { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Veille Alternance</h1>
+  <p class="sub">Un mot-clé par ligne. Chaque lien ouvre la recherche de la plateforme, triée par les plus récents.</p>
+
+  <section class="panel">
+    <label for="keywords">Mots-clés</label>
+    <textarea id="keywords" spellcheck="false"></textarea>
+    <div class="row period" role="group" aria-label="Période">
+      <button type="button" data-period="day">24 h</button>
+      <button type="button" data-period="week">7 jours</button>
+      <button type="button" data-period="month">30 jours</button>
+    </div>
+    <p class="tip">TikTok, Facebook et Instagram n'acceptent pas la date dans l'URL : une fois la page ouverte, active le filtre « Date de publication » ou « Récents ». Les liens « Google » couvrent ces plateformes avec le filtre de date.</p>
+  </section>
+
+  <div id="results"></div>
+</main>
+
+<script>
+  const DEFAULT_KEYWORDS = [
+    "alternance",
+    "trouver une alternance",
+    "recherche alternance",
+    "contrat pro",
+    "contrat d'apprentissage",
+    "rupture alternance",
+    "école alternance",
+  ];
+
+  const GOOGLE_TBS = { day: "qdr:d", week: "qdr:w", month: "qdr:m" };
+  const LINKEDIN_DATE = { day: "past-24h", week: "past-week", month: "past-month" };
+  // YouTube "upload date" filter tokens.
+  const YOUTUBE_SP = { day: "EgIIAg%3D%3D", week: "EgIIAw%3D%3D", month: "EgIIBA%3D%3D" };
+
+  const e = encodeURIComponent;
+  const google = (q, site, p) =>
+    `https://www.google.com/search?q=${e(`"${q}" site:${site}`)}&tbs=${GOOGLE_TBS[p]}`;
+
+  const PLATFORMS = [
+    { name: "Reddit", note: "tri : nouveaux",
+      url: (q, p) => `https://www.reddit.com/search/?q=${e(q)}&sort=new&t=${p}` },
+    { name: "LinkedIn", note: "posts, par date",
+      url: (q, p) => `https://www.linkedin.com/search/results/content/?keywords=${e(q)}&sortBy=${e('"date_posted"')}&datePosted=${e(`"${LINKEDIN_DATE[p]}"`)}` },
+    { name: "TikTok", note: "filtre date à activer",
+      url: (q) => `https://www.tiktok.com/search/video?q=${e(q)}` },
+    { name: "Facebook", note: "activer « récents »",
+      url: (q) => `https://www.facebook.com/search/posts/?q=${e(q)}` },
+    { name: "X", note: "en direct",
+      url: (q) => `https://x.com/search?q=${e(q)}&f=live` },
+    { name: "YouTube", note: "par date de mise en ligne",
+      url: (q, p) => `https://www.youtube.com/results?search_query=${e(q)}&sp=${YOUTUBE_SP[p]}` },
+    { name: "Google · Reddit", note: "filtre date",
+      url: (q, p) => google(q, "reddit.com", p) },
+    { name: "Google · LinkedIn", note: "filtre date",
+      url: (q, p) => google(q, "linkedin.com/posts", p) },
+    { name: "Google · TikTok", note: "filtre date",
+      url: (q, p) => google(q, "tiktok.com", p) },
+    { name: "Google · Instagram", note: "filtre date",
+      url: (q, p) => google(q, "instagram.com", p) },
+    { name: "Google · Facebook", note: "filtre date",
+      url: (q, p) => google(q, "facebook.com", p) },
+  ];
+
+  const textarea = document.getElementById("keywords");
+  const results = document.getElementById("results");
+  const periodButtons = document.querySelectorAll(".period button");
+
+  function load(key, fallback) {
+    try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+  }
+  function save(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* storage unavailable */ }
+  }
+
+  let period = load("veille.period", "week");
+  textarea.value = load("veille.keywords", DEFAULT_KEYWORDS.join("\n"));
+
+  function render() {
+    periodButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.period === period)));
+    const keywords = textarea.value.split("\n").map((k) => k.trim()).filter(Boolean);
+    results.replaceChildren(...keywords.map((q) => {
+      const section = document.createElement("section");
+      section.className = "panel kw";
+      const title = document.createElement("h2");
+      title.textContent = q;
+      const links = document.createElement("div");
+      links.className = "links";
+      for (const platform of PLATFORMS) {
+        const a = document.createElement("a");
+        a.href = platform.url(q, period);
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = platform.name;
+        const note = document.createElement("small");
+        note.textContent = platform.note;
+        a.append(note);
+        links.append(a);
+      }
+      section.append(title, links);
+      return section;
+    }));
+  }
+
+  textarea.addEventListener("input", () => { save("veille.keywords", textarea.value); render(); });
+  periodButtons.forEach((b) => b.addEventListener("click", () => {
+    period = b.dataset.period;
+    save("veille.period", period);
+    render();
+  }));
+
+  render();
+</script>
+</body>
+</html>
